@@ -26,5 +26,9 @@ Copy-File [-Path] <string[]> [-Destination] <string> [-Force]
 
 Copy-File -LiteralPath <string[]> -Destination <string> [-Force]
 
-Get-CompressedFileSize [-LiteralPath] <string>
+Get-CompressedFileSize [-Path] <string[]>
+
+Get-CompressedFileSize -LiteralPath <string[]>
+
+Get-CompressedFileSize -FileInfo <FileInfo[]>
 ```
