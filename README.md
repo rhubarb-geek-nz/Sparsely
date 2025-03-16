@@ -17,7 +17,7 @@ Uses the Win32 API [GetCompressedFileSize](https://learn.microsoft.com/en-us/win
 
 # Get-CompressedFileSize on others
 
-Uses `du` with `--block-size=1` for Linux and multiplies by 512 on others.
+Uses `du` with `--block-size=512` for Linux and multiplies by 512.
 
 # Syntax
 

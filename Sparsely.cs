@@ -19,14 +19,14 @@ namespace RhubarbGeekNz.Sparsely
         private const int ERROR_MORE_DATA = 234;
         private const int ERROR_ALREADY_EXISTS = 183;
 
-        [Parameter(ParameterSetName = "literal", Mandatory = true, HelpMessage = "Source path")]
-        public string[] LiteralPath;
-
         [Parameter(ParameterSetName = "path", Mandatory = true, Position = 0, HelpMessage = "Source path")]
         public string[] Path;
 
-        [Parameter(ParameterSetName = "literal", Mandatory = true, HelpMessage = "Target path")]
+        [Parameter(ParameterSetName = "literal", Mandatory = true, HelpMessage = "Source path")]
+        public string[] LiteralPath;
+
         [Parameter(ParameterSetName = "path", Mandatory = true, Position = 1, HelpMessage = "Target path")]
+        [Parameter(ParameterSetName = "literal", Mandatory = true, HelpMessage = "Target path")]
         public string Destination;
 
         private bool useForce;
@@ -281,15 +281,74 @@ namespace RhubarbGeekNz.Sparsely
     [OutputType(typeof(UInt64))]
     sealed public class GetCompressedFileSize : PSCmdlet
     {
-        [Parameter(Mandatory = true, Position = 0, HelpMessage = "Source filename")]
-        public string LiteralPath;
+        [Parameter(ParameterSetName = "path", Mandatory = true, Position = 0, HelpMessage = "Source path")]
+        public string[] Path;
+
+        [Parameter(ParameterSetName = "literal", Mandatory = true, HelpMessage = "Source path")]
+        public string[] LiteralPath;
+
+        [Parameter(ParameterSetName = "file", Mandatory = true, ValueFromPipeline = true, HelpMessage = "Source path")]
+        public FileInfo[] FileInfo;
 
         protected override void ProcessRecord()
         {
+            if (Path != null)
+            {
+                foreach (string path in Path)
+                {
+                    try
+                    {
+                        var paths = GetResolvedProviderPathFromPSPath(path, out var providerPath);
+
+                        if ("FileSystem".Equals(providerPath.Name))
+                        {
+                            foreach (string item in paths)
+                            {
+                                ProcessFile(new FileInfo(item));
+                            }
+                        }
+                        else
+                        {
+                            WriteError(new ErrorRecord(new Exception($"Provider {providerPath.Name} not handled"), "ProviderError", ErrorCategory.NotImplemented, providerPath));
+                        }
+                    }
+                    catch (ItemNotFoundException ex)
+                    {
+                        WriteError(new ErrorRecord(ex, ex.GetType().Name, ErrorCategory.ResourceUnavailable, path));
+                    }
+                }
+            }
+
+            if (LiteralPath != null)
+            {
+                foreach (string literalPath in LiteralPath)
+                {
+                    try
+                    {
+                        ProcessFile(new FileInfo(GetUnresolvedProviderPathFromPSPath(literalPath)));
+                    }
+                    catch (ItemNotFoundException ex)
+                    {
+                        WriteError(new ErrorRecord(ex, ex.GetType().Name, ErrorCategory.ResourceUnavailable, literalPath));
+                    }
+                }
+            }
+
+            if (FileInfo != null)
+            {
+                foreach (FileInfo fileInfo in FileInfo)
+                {
+                    ProcessFile(fileInfo);
+                }
+            }
+        }
+
+        private void ProcessFile(FileInfo fileInfo)
+        {
+            string path = fileInfo.FullName;
+
             try
             {
-                string path = GetUnresolvedProviderPathFromPSPath(LiteralPath);
-
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
                     UInt32 high = 0;
@@ -305,8 +364,10 @@ namespace RhubarbGeekNz.Sparsely
                         }
                     }
 
-                    UInt64 total = (high << 32) + low;
-                    WriteObject(total);
+                    UInt64 total = high;
+                    total <<= 32;
+                    total += low;
+                    WriteFileSize(fileInfo, (long)total);
                 }
                 else
                 {
@@ -315,7 +376,7 @@ namespace RhubarbGeekNz.Sparsely
                     shell.AddCommand("du");
                     if (isLinux)
                     {
-                        shell.AddArgument("--block-size=1");
+                        shell.AddArgument("--block-size=512");
                     }
                     shell.AddArgument(path);
                     var result = shell.Invoke();
@@ -335,12 +396,9 @@ namespace RhubarbGeekNz.Sparsely
                             }
                             i++;
                         }
-                        UInt64 total = (ulong)Int64.Parse(str.Substring(0, i));
-                        if (!isLinux)
-                        {
-                            total <<= 9;
-                        }
-                        WriteObject(total);
+                        long total = Int64.Parse(str.Substring(0, i));
+                        total <<= 9;
+                        WriteFileSize(fileInfo, total);
                     }
                 }
             }
@@ -348,6 +406,14 @@ namespace RhubarbGeekNz.Sparsely
             {
                 WriteError(new ErrorRecord(ex, ex.GetType().Name, ErrorCategory.ReadError, null));
             }
+        }
+
+        private void WriteFileSize(FileInfo file, long size)
+        {
+            PSObject obj = new PSObject();
+            obj.Members.Add(new PSNoteProperty("Size", size));
+            obj.Members.Add(new PSNoteProperty("File", file));
+            WriteObject(obj);
         }
 
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
