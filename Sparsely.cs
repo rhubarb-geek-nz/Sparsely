@@ -102,9 +102,7 @@ namespace RhubarbGeekNz.Sparsely
                 destPath = System.IO.Path.Combine(destPath, fileName);
             }
 
-#if NETCOREAPP
-            if (OperatingSystem.IsWindows())
-#endif
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 if (fileAttributes.HasFlag(FileAttributes.SparseFile))
                 {
@@ -120,32 +118,18 @@ namespace RhubarbGeekNz.Sparsely
                     File.Copy(source, destPath, useForce);
                 }
             }
-#if NETCOREAPP
             else
             {
-                ProcessStartInfo psi = new ProcessStartInfo("/bin/cp", [ source, destPath ])
+                PowerShell shell=PowerShell.Create();
+                shell.AddCommand("cp");
+                shell.AddArgument(source);
+                shell.AddArgument(destPath);
+                shell.Invoke();
+                foreach (var error in shell.Streams.Error)
                 {
-                    RedirectStandardInput = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-                Process p = Process.Start(psi);
-                p.StandardInput.Dispose();
-                using(var stdo = p.StandardOutput)
-                {
-                    using (var stde = p.StandardError)
-                    {
-                        string stdout = stdo.ReadToEnd();
-                        string stderr = stde.ReadToEnd();
-                        p.WaitForExit();
-                        if (p.ExitCode != 0)
-                        {
-                            throw new Exception(stderr.Trim());
-                        }
-                    }
+                    WriteError(error);
                 }
             }
-#endif
         }
 
         void CopySparseFile(string source, string dest)
@@ -287,7 +271,7 @@ namespace RhubarbGeekNz.Sparsely
         }
 
         [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true, CharSet = CharSet.Auto)]
-        static extern bool DeviceIoControl(
+        internal static extern bool DeviceIoControl(
             SafeFileHandle hDevice,
             uint dwIoControlCode,
             IntPtr lpInBuffer, int nInBufferSize,
@@ -308,9 +292,7 @@ namespace RhubarbGeekNz.Sparsely
             {
                 string path = GetUnresolvedProviderPathFromPSPath(LiteralPath);
 
-#if NETCOREAPP
-                if (OperatingSystem.IsWindows())
-#endif
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
                     UInt32 high = 0;
                     UInt32 low = GetCompressedFileSizeW(path, ref high);
@@ -328,44 +310,41 @@ namespace RhubarbGeekNz.Sparsely
                     UInt64 total = (high << 32) + low;
                     WriteObject(total);
                 }
-#if NETCOREAPP
                 else
                 {
-                    UInt64 multiplier = OperatingSystem.IsLinux() ? 1024U : 512U;
-                    ProcessStartInfo psi = new ProcessStartInfo("/usr/bin/du", [ path ])
+                    bool isLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+                    PowerShell shell = PowerShell.Create();
+                    shell.AddCommand("du");
+                    if (isLinux)
                     {
-                        RedirectStandardInput = true,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true
-                    };
-                    Process p = Process.Start(psi);
-                    p.StandardInput.Dispose();
-                    using(var stdo = p.StandardOutput)
+                        shell.AddArgument("--block-size=1");
+                    }
+                    shell.AddArgument(path);
+                    var result = shell.Invoke();
+                    foreach (var error in shell.Streams.Error)
                     {
-                        using (var stde = p.StandardError)
+                        WriteError(error);
+                    }
+                    foreach (var output in result)
+                    {
+                        string str = output.ToString();
+                        int i = 0;
+                        while (i < str.Length)
                         {
-                            string stdout = stdo.ReadToEnd();
-                            string stderr = stde.ReadToEnd();
-                            p.WaitForExit();
-                            if (p.ExitCode != 0)
+                            if (Char.IsWhiteSpace(str[i]))
                             {
-                                throw new Exception(stderr.Trim());
+                                break;
                             }
-                            int lenLength = 0;
-                            while (lenLength < stdout.Length)
-                            {
-                                if (Char.IsWhiteSpace(stdout[lenLength]))
-                                {
-                                    break;
-                                }
-                                lenLength++;
-                            }
-                            UInt64 len = (UInt64)Int64.Parse(stdout.Substring(0, lenLength));
-                            WriteObject(len * multiplier);
+                            i++;
                         }
+                        UInt64 total = (ulong)Int64.Parse(str.Substring(0, i));
+                        if (!isLinux)
+                        {
+                            total <<= 9;
+                        }
+                        WriteObject(total);
                     }
                 }
-#endif
             }
             catch (Exception ex)
             {

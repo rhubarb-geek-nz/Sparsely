@@ -27,25 +27,6 @@ $Author = Get-SingleNodeValue $xmlDoc '/Project/PropertyGroup/Authors'
 $Copyright = Get-SingleNodeValue $xmlDoc '/Project/PropertyGroup/Copyright'
 $AssemblyName = Get-SingleNodeValue $xmlDoc '/Project/PropertyGroup/AssemblyName'
 $CompanyName = Get-SingleNodeValue $xmlDoc '/Project/PropertyGroup/Company'
-$CompatiblePSEditions = 'Core'
-
-switch ( $TargetFramework )
-{
-	'net6.0' {
-			$PowerShellVersion = '7.2'
-		}
-	'net8.0' {
-			$PowerShellVersion = '7.4'
-		}
-	'net9.0' {
-			$PowerShellVersion = '7.5'
-		}
-	'netstandard2.0' {
-		$PowerShellVersion = '5.1'
-		$CompatiblePSEditions = 'Desktop'
-		$ModuleId += '.Desktop'
-	}
-}
 
 $moduleSettings = @{
 	Path = "$OutDir$ModuleId.psd1"
@@ -61,8 +42,6 @@ $moduleSettings = @{
 	VariablesToExport = '*'
 	AliasesToExport = @()
 	ProjectUri = $ProjectUri
-	CompatiblePSEditions = $CompatiblePSEditions
-	PowerShellVersion = $PowerShellVersion
 }
 
 New-ModuleManifest @moduleSettings
