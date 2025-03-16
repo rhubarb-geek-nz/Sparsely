@@ -28,7 +28,8 @@ namespace RhubarbGeekNz.Sparsely
         [Parameter(ParameterSetName = "path", Mandatory = true, Position = 0, HelpMessage = "Source path")]
         public string[] Path;
 
-        [Parameter(Mandatory = true, HelpMessage = "Target path")]
+        [Parameter(ParameterSetName = "literal", Mandatory = true, HelpMessage = "Target path")]
+        [Parameter(ParameterSetName = "path", Mandatory = true, Position = 1, HelpMessage = "Target path")]
         public string Destination;
 
         private bool useForce;
@@ -120,7 +121,7 @@ namespace RhubarbGeekNz.Sparsely
             }
             else
             {
-                PowerShell shell=PowerShell.Create();
+                PowerShell shell = PowerShell.Create();
                 shell.AddCommand("cp");
                 shell.AddArgument(source);
                 shell.AddArgument(destPath);
