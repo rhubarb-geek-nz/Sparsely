@@ -22,7 +22,7 @@ Uses `du` with `--block-size=1` for Linux and multiplies by 512 on others.
 # Syntax
 
 ```
-Copy-File [-Path] <string[]> -Destination <string> [-Force]
+Copy-File [-Path] <string[]> [-Destination] <string> [-Force]
 
 Copy-File -LiteralPath <string[]> -Destination <string> [-Force]
 
