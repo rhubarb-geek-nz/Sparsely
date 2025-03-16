@@ -1,10 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
     <AssemblyName>RhubarbGeekNz.Sparsely</AssemblyName>
     <Copyright>Copyright © 2025 Roger Brown</Copyright>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <AssemblyTitle>PowerShell Copy-File Cmdlet</AssemblyTitle>
     <Product>Sparsely for PowerShell</Product>
     <Company>rhubarb-geek-nz</Company>
@@ -48,7 +48,7 @@
       <FilesToDelete Include="$(PublishDir)*.pdb" />
     </ItemGroup>
     <Delete Files="@(FilesToDelete)" />
-    <Exec Command="pwsh -ExecutionPolicy Bypass -NoProfile -File ./package.ps1 $(ProjectName) $(IntermediateOutputPath) $(OutDir) $(PublishDir)" />
+    <Exec Command="pwsh -ExecutionPolicy Bypass -NoProfile -File ./package.ps1 $(ProjectName) $(IntermediateOutputPath) $(OutDir) $(PublishDir) $(TargetFramework)" />
     <RemoveDir Directories="$(PublishDir)runtimes;$(PublishDir)sqlite-netStandard20-binary" />
     <Delete Files="$(OutDir)$(PackageId).psd1" />
   </Target>

@@ -4,6 +4,9 @@
 using Microsoft.Win32.SafeHandles;
 using System;
 using System.ComponentModel;
+#if NETCOREAPP
+using System.Diagnostics;
+#endif
 using System.IO;
 using System.Management.Automation;
 using System.Runtime.InteropServices;
@@ -99,19 +102,50 @@ namespace RhubarbGeekNz.Sparsely
                 destPath = System.IO.Path.Combine(destPath, fileName);
             }
 
-            if (fileAttributes.HasFlag(FileAttributes.SparseFile))
+#if NETCOREAPP
+            if (OperatingSystem.IsWindows())
+#endif
             {
-                if ((!useForce) && File.Exists(destPath))
+                if (fileAttributes.HasFlag(FileAttributes.SparseFile))
                 {
-                    throw new Win32Exception(ERROR_ALREADY_EXISTS);
-                }
+                    if ((!useForce) && File.Exists(destPath))
+                    {
+                        throw new Win32Exception(ERROR_ALREADY_EXISTS);
+                    }
 
-                CopySparseFile(source, destPath);
+                    CopySparseFile(source, destPath);
+                }
+                else
+                {
+                    File.Copy(source, destPath, useForce);
+                }
             }
+#if NETCOREAPP
             else
             {
-                File.Copy(source, destPath, useForce);
+                ProcessStartInfo psi = new ProcessStartInfo("/bin/cp", [ source, destPath ])
+                {
+                    RedirectStandardInput = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+                Process p = Process.Start(psi);
+                p.StandardInput.Dispose();
+                using(var stdo = p.StandardOutput)
+                {
+                    using (var stde = p.StandardError)
+                    {
+                        string stdout = stdo.ReadToEnd();
+                        string stderr = stde.ReadToEnd();
+                        p.WaitForExit();
+                        if (p.ExitCode != 0)
+                        {
+                            throw new Exception(stderr.Trim());
+                        }
+                    }
+                }
             }
+#endif
         }
 
         void CopySparseFile(string source, string dest)
@@ -262,7 +296,7 @@ namespace RhubarbGeekNz.Sparsely
     }
 
     [Cmdlet(VerbsCommon.Get, "CompressedFileSize")]
-    [OutputType(typeof(long))]
+    [OutputType(typeof(UInt64))]
     sealed public class GetCompressedFileSize : PSCmdlet
     {
         [Parameter(Mandatory = true, Position = 0, HelpMessage = "Source filename")]
@@ -273,21 +307,65 @@ namespace RhubarbGeekNz.Sparsely
             try
             {
                 string path = GetUnresolvedProviderPathFromPSPath(LiteralPath);
-                UInt32 high = 0;
-                UInt32 low = GetCompressedFileSizeW(path, ref high);
 
-                if (low == UInt32.MaxValue)
+#if NETCOREAPP
+                if (OperatingSystem.IsWindows())
+#endif
                 {
-                    int err = Marshal.GetLastWin32Error();
+                    UInt32 high = 0;
+                    UInt32 low = GetCompressedFileSizeW(path, ref high);
 
-                    if (err != 0)
+                    if (low == UInt32.MaxValue)
                     {
-                        throw new Win32Exception(err);
+                        int err = Marshal.GetLastWin32Error();
+
+                        if (err != 0)
+                        {
+                            throw new Win32Exception(err);
+                        }
+                    }
+
+                    UInt64 total = (high << 32) + low;
+                    WriteObject(total);
+                }
+#if NETCOREAPP
+                else
+                {
+                    UInt64 multiplier = OperatingSystem.IsLinux() ? 1024U : 512U;
+                    ProcessStartInfo psi = new ProcessStartInfo("/usr/bin/du", [ path ])
+                    {
+                        RedirectStandardInput = true,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true
+                    };
+                    Process p = Process.Start(psi);
+                    p.StandardInput.Dispose();
+                    using(var stdo = p.StandardOutput)
+                    {
+                        using (var stde = p.StandardError)
+                        {
+                            string stdout = stdo.ReadToEnd();
+                            string stderr = stde.ReadToEnd();
+                            p.WaitForExit();
+                            if (p.ExitCode != 0)
+                            {
+                                throw new Exception(stderr.Trim());
+                            }
+                            int lenLength = 0;
+                            while (lenLength < stdout.Length)
+                            {
+                                if (Char.IsWhiteSpace(stdout[lenLength]))
+                                {
+                                    break;
+                                }
+                                lenLength++;
+                            }
+                            UInt64 len = (UInt64)Int64.Parse(stdout.Substring(0, lenLength));
+                            WriteObject(len * multiplier);
+                        }
                     }
                 }
-
-                UInt64 total = (high << 32) + low;
-                WriteObject(total);
+#endif
             }
             catch (Exception ex)
             {
