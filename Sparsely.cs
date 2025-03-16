@@ -4,9 +4,6 @@
 using Microsoft.Win32.SafeHandles;
 using System;
 using System.ComponentModel;
-#if NETCOREAPP
-using System.Diagnostics;
-#endif
 using System.IO;
 using System.Management.Automation;
 using System.Runtime.InteropServices;
