@@ -118,14 +118,16 @@ namespace RhubarbGeekNz.Sparsely
             }
             else
             {
-                PowerShell shell = PowerShell.Create();
-                shell.AddCommand("cp");
-                shell.AddArgument(source);
-                shell.AddArgument(destPath);
-                shell.Invoke();
-                foreach (var error in shell.Streams.Error)
+                using (PowerShell shell = PowerShell.Create())
                 {
-                    WriteError(error);
+                    shell.AddCommand("/bin/cp");
+                    shell.AddArgument(source);
+                    shell.AddArgument(destPath);
+                    shell.Invoke();
+                    foreach (var error in shell.Streams.Error)
+                    {
+                        WriteError(error);
+                    }
                 }
             }
         }
@@ -371,34 +373,35 @@ namespace RhubarbGeekNz.Sparsely
                 }
                 else
                 {
-                    bool isLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
-                    PowerShell shell = PowerShell.Create();
-                    shell.AddCommand("du");
-                    if (isLinux)
+                    using (PowerShell shell = PowerShell.Create())
                     {
-                        shell.AddArgument("--block-size=512");
-                    }
-                    shell.AddArgument(path);
-                    var result = shell.Invoke();
-                    foreach (var error in shell.Streams.Error)
-                    {
-                        WriteError(error);
-                    }
-                    foreach (var output in result)
-                    {
-                        string str = output.ToString();
-                        int i = 0;
-                        while (i < str.Length)
+                        shell.AddCommand("/usr/bin/du");
+                        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
                         {
-                            if (Char.IsWhiteSpace(str[i]))
-                            {
-                                break;
-                            }
-                            i++;
+                            shell.AddArgument("--block-size=512");
                         }
-                        long total = Int64.Parse(str.Substring(0, i));
-                        total <<= 9;
-                        WriteFileSize(fileInfo, total);
+                        shell.AddArgument(path);
+                        var result = shell.Invoke();
+                        foreach (var error in shell.Streams.Error)
+                        {
+                            WriteError(error);
+                        }
+                        foreach (var output in result)
+                        {
+                            string str = output.ToString();
+                            int i = 0;
+                            while (i < str.Length)
+                            {
+                                if (Char.IsWhiteSpace(str[i]))
+                                {
+                                    break;
+                                }
+                                i++;
+                            }
+                            long total = Int64.Parse(str.Substring(0, i));
+                            total <<= 9;
+                            WriteFileSize(fileInfo, total);
+                        }
                     }
                 }
             }

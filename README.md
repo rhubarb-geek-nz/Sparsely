@@ -9,7 +9,7 @@ See [Sparsely.cs](Sparsely.cs) for details.
 
 # Copy-File on others
 
-Uses `cp` as this deals with sparse files.
+Uses `/bin/cp` as this deals with sparse files.
 
 # Get-CompressedFileSize on Windows
 
@@ -17,7 +17,7 @@ Uses the Win32 API [GetCompressedFileSize](https://learn.microsoft.com/en-us/win
 
 # Get-CompressedFileSize on others
 
-Uses `du` with `--block-size=512` for Linux and multiplies by 512.
+Uses `/usr/bin/du` with `--block-size=512` for Linux and multiplies by 512.
 
 # Syntax
 
