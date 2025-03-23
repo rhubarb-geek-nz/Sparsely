@@ -280,7 +280,6 @@ namespace RhubarbGeekNz.Sparsely
     }
 
     [Cmdlet(VerbsCommon.Get, "CompressedFileSize")]
-    [OutputType(typeof(UInt64))]
     sealed public class GetCompressedFileSize : PSCmdlet
     {
         [Parameter(ParameterSetName = "path", Mandatory = true, Position = 0, HelpMessage = "Source path")]
